@@ -51,19 +51,17 @@ class A3TGCN(nn.Module):
         self.linear = nn.Linear(hidden_dim, 1)
 
     def forward(self, x, edge_index):
-        # x is (batch_size, num_nodes, seq_len, node_features)
-        batch_size, num_nodes, seq_len, features = x.shape
+        # PyTorch Geometric flattens batch and nodes into a single dimension
+        # x shape: (num_nodes, seq_len, node_features)
+        num_nodes, seq_len, features = x.shape
         
         hidden_states = []
         
         # 1. Process Spatial Data for each time step
         for t in range(seq_len):
-            x_t = x[:, :, t, :] # (batch_size, num_nodes, node_features)
+            x_t = x[:, t, :] # (num_nodes, node_features)
             
-            # Note: GCNConv typically expects (num_nodes, features), 
-            # so we reshape or loop over batches depending on implementation detail.
-            # Assuming batch_size=1 for standard full-graph spatial forecasting:
-            gcn_out = self.gcn(x_t.squeeze(0), edge_index) # (num_nodes, hidden_dim)
+            gcn_out = self.gcn(x_t, edge_index) # (num_nodes, hidden_dim)
             hidden_states.append(gcn_out.unsqueeze(1)) # (num_nodes, 1, hidden_dim)
             
         # 2. Process Temporal sequence

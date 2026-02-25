@@ -69,9 +69,9 @@ export default function MapControl({
                         onTouchEnd={() => onCompareRoutes(startAddress, endAddress)}
                         className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600 hover:accent-blue-700 transition-all"
                     />
-                    <div className="flex justify-between text-[10px] text-gray-400 font-medium uppercase mt-1">
-                        <span>Fastest Route</span>
-                        <span>Cleanest Air</span>
+                    <div className="flex justify-between text-[10px] text-gray-500 font-bold uppercase mt-2 px-1">
+                        <span className="flex items-center tracking-wider"><div className="w-3 h-0 border-t-2 border-dashed border-red-500 mr-1.5"></div>Fastest Route</span>
+                        <span className="flex items-center tracking-wider"><div className="w-3 h-1 bg-green-500 mr-1.5 rounded-full"></div>Cleanest Air</span>
                     </div>
                 </div>
 

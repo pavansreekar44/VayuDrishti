@@ -60,15 +60,15 @@ class AStarSpatioTemporalRouter:
         if source not in self.graph or target not in self.graph:
             raise ValueError("Source or Target node not found in the graph.")
 
-        # Priority queue stores tuples of (cost, current_node, path, total_distance, total_exposure)
-        queue = [(0.0, source, [source], 0.0, 0.0)]
+        # Priority queue stores tuples of (f_score, current_cost, current_node, path, total_distance, total_exposure)
+        queue = [(0.0, 0.0, source, [source], 0.0, 0.0)]
         
         # Track minimum costs to reach a node
         min_costs = {source: 0.0}
 
         while queue:
-            # Pop the node with the lowest aggregated cost
-            current_cost, current_node, path, total_dist, total_exp = heapq.heappop(queue)
+            # Pop the node with the lowest aggregated f_score
+            f_score, current_cost, current_node, path, total_dist, total_exp = heapq.heappop(queue)
 
             # If we reached the target, we have our optimal path
             if current_node == target:
@@ -107,9 +107,28 @@ class AStarSpatioTemporalRouter:
                     new_dist = total_dist + length
                     new_exp = total_exp + exposure
                     
+                    # TRUE A* HEURISTIC: Calculate straight-line Haversine distance to target
+                    import math
+                    def haversine(lat1, lon1, lat2, lon2):
+                        R = 6371000
+                        phi1, phi2 = math.radians(lat1), math.radians(lat2)
+                        dphi = math.radians(lat2 - lat1)
+                        dlambda = math.radians(lon2 - lon1)
+                        a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
+                        return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+                        
+                    n_y, n_x = self.graph.nodes[neighbor]['y'], self.graph.nodes[neighbor]['x']
+                    t_y, t_x = self.graph.nodes[target]['y'], self.graph.nodes[target]['x']
+                    
+                    # Heuristic predicts remaining cost. alpha * dist + beta * assumed_cleanest_pm25
+                    h_dist = haversine(n_y, n_x, t_y, t_x)
+                    h_score = (alpha * h_dist) + (beta * (h_dist / 1.4 * 5.0)) # 5.0 is minimum theoretical PM2.5
+                    
+                    f_score = new_cost + h_score
+                    
                     heapq.heappush(
                         queue, 
-                        (new_cost, neighbor, path + [neighbor], new_dist, new_exp)
+                        (f_score, new_cost, neighbor, path + [neighbor], new_dist, new_exp)
                     )
 
         raise nx.NetworkXNoPath(f"No path between {source} and {target}.")

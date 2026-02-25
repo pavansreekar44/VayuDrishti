@@ -14,12 +14,30 @@ class NavigationResponse(BaseModel):
 def convert_path_to_geojson(G: nx.MultiDiGraph, path: List[Any], name: str, color: str) -> Dict[str, Any]:
     """Helper formatting the output path into Mapbox compatible GeoJSON."""
     coordinates = []
-    for node in path:
-        node_data = G.nodes.get(node, {})
-        # OSMnx provides x (lon), y (lat)
-        lon = node_data.get('x', 0.0)
-        lat = node_data.get('y', 0.0)
-        coordinates.append([lon, lat])
+    
+    if len(path) > 1:
+        for i in range(len(path) - 1):
+            u = path[i]
+            v = path[i+1]
+            edge_data = G.get_edge_data(u, v)
+            
+            if edge_data and 0 in edge_data:
+                edge = edge_data[0]
+                if 'geometry' in edge:
+                    # 'geometry' contains the true curved linestring from OSM
+                    for lon, lat in edge['geometry'].coords:
+                        if not coordinates or coordinates[-1] != [lon, lat]:
+                            coordinates.append([lon, lat])
+                else:
+                    # Fallback to straight line between nodes if no curve exists
+                    u_node = G.nodes[u]
+                    v_node = G.nodes[v]
+                    if not coordinates or coordinates[-1] != [u_node['x'], u_node['y']]:
+                        coordinates.append([u_node['x'], u_node['y']])
+                    coordinates.append([v_node['x'], v_node['y']])
+    elif len(path) == 1:
+        n = G.nodes[path[0]]
+        coordinates.extend([[n['x'], n['y']], [n['x'], n['y']]])
 
     return {
         "type": "FeatureCollection",
@@ -70,7 +88,7 @@ def get_global_graph():
         G_GLOBAL = ox.load_graphml(GRAPH_FILE)
     else:
         print("Downloading single-city map from OSM (This only happens once!)...")
-        # Use an 8km radius around Hussain Sagar to cover more of the city (including Uppal)
+        # Use a safe 8km radius (16km diameter, ~200 sq km) to avoid Python RAM Exhaustion
         center_point = (17.4239, 78.4738)
         G_GLOBAL = ox.graph_from_point(center_point, dist=8000, network_type='drive', simplify=True)
         
@@ -112,10 +130,10 @@ async def get_optimal_route(
         dist_start = haversine(start_lat, start_lon, slat, slon)
         dist_end = haversine(end_lat, end_lon, tlat, tlon)
         
-        if dist_start > 2500 or dist_end > 2500:
+        if dist_start > 8000 or dist_end > 8000:
             raise HTTPException(
                 status_code=400, 
-                detail=f"Addresses are outside the cached Hyderabad city limits. Start snapped by {int(dist_start)}m, End by {int(dist_end)}m. Please choose locations closer to the center (e.g., Banjara Hills, Secunderabad, Begumpet)."
+                detail=f"Addresses are outside the cached Hyderabad city limits. Start snapped by {int(dist_start)}m, End by {int(dist_end)}m. Please choose locations closer to the center (e.g., Banjara Hills, Secunderabad, Begumpet, Uppal)."
             )
     except HTTPException as he:
         raise he

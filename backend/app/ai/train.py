@@ -3,8 +3,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torch_geometric.loader import DataLoader
 import logging
-from .dataset import CityPollutionGraphDataset
-from .a3tgcn import A3TGCN
+from app.ai.dataset import CityPollutionGraphDataset
+from app.ai.a3tgcn import A3TGCN
 
 logger = logging.getLogger(__name__)
 
@@ -62,5 +62,6 @@ def train_model(data_dir: str, epochs: int = 50, batch_size: int = 16, lr: float
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    # Placeholder for test run
-    # train_model(data_dir="./data")
+    import os
+    data_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+    train_model(data_dir=data_path, epochs=1)

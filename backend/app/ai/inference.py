@@ -24,39 +24,67 @@ class AIPollutionPredictor:
         self.is_loaded = False
         
         if not weights_path:
-            # Default lookup in the ai directory
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            weights_path = os.path.join(script_dir, "a3tgcn_weights.pt")
+            weights_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "a3tgcn_weights.pt")
 
         if os.path.exists(weights_path):
             try:
-                self.model.load_state_dict(torch.load(weights_path, map_location=self.device))
+                self.model.load_state_dict(torch.load(weights_path, map_location=self.device, weights_only=True))
                 self.model.eval()
                 self.is_loaded = True
-                logger.info(f"✅ Loaded PyTorch AI Brain from {weights_path}")
+                self.cached_predictions = self._run_full_inference_pass()
+                logger.info(f"✅ Loaded PyTorch AI Brain from {weights_path} and cached 60KM map predictions.")
             except Exception as e:
                 logger.error(f"Failed to load AI weights: {e}")
         else:
             logger.warning("No pre-trained A3T-GCN weights found. AI Inference will run in fallback simulation mode.")
 
+    def _run_full_inference_pass(self):
+        """
+        Runs the entire 60km graph through the A3T-GCN model once and caches the predicted PM2.5 target.
+        This provides O(1) latency during A* routing.
+        """
+        try:
+            import pickle
+            data_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "synthetic_training_tensor.pkl")
+            with open(data_path, 'rb') as f:
+                dataset = pickle.load(f)
+            
+            x = torch.tensor(dataset['x'], dtype=torch.float).to(self.device)
+            edge_index = dataset['edge_index']
+            mapping = dataset['node_mapping']
+            reverse_mapping = {v: k for k, v in mapping.items()}
+            
+            mapped_edges = []
+            for u, v in edge_index:
+                if u in mapping and v in mapping:
+                    mapped_edges.append([mapping[u], mapping[v]])
+            edge_tensor = torch.tensor(mapped_edges, dtype=torch.long).t().contiguous().to(self.device)
+            
+            with torch.no_grad():
+                # Extract the last 24-hour window from the dataset to forecast the "current live" hour
+                window_x = x[:, -24:, :]
+                out = self.model(window_x, edge_tensor)
+                
+            predictions = {}
+            for i in range(out.shape[0]):
+                osmid = reverse_mapping[i]
+                predictions[osmid] = float(out[i, 0].item())
+                
+            return predictions
+            
+        except Exception as e:
+            logger.error(f"Failed to run inference pass: {e}. Falling back to simulated proxy.")
+            return None
+
     def predict_edge_pollution(self, u_id, v_id, edge_data, current_time=None) -> float:
         """
-        In a production environment, this queries the localized subgraph around edge (u, v) 
-        and passes the node embeddings and 24-hour TimescaleDB history through the PyTorch model 
-        to predict the PM2.5 at specific time T.
+        Retrieves the PyTorch A3T-GCN predicted PM2.5 for this specific road segment.
         """
-        # If the model is fully trained and loaded:
-        if self.is_loaded:
-            # In live production:
-            # 1. Fetch 24-hr history vectors from TimescaleDB cache for nodes u and v
-            # 2. Package into PyTorch Geometric Data object
-            # 3. out = self.model(graph_batch.x, graph_batch.edge_index)
-            # return float(out[target_node_idx].item())
-            pass
-
-        # Since training takes hours on a GPU and we don't have .pt weights for the hackathon prototype,
-        # we generate highly-realistic, dynamic pollutant estimates by leveraging the structural
-        # OSM map attributes of the roads (e.g. highways have high pollution, residential is clean) + spatial hashing.
+        if self.is_loaded and self.cached_predictions is not None:
+            # The pollution on the edge from u to v is approximately the predicted pollution at node u
+            # or the average of u and v. We use u for speed.
+            if u_id in self.cached_predictions:
+                return float(self.cached_predictions[u_id])
         
         highway = edge_data.get('highway', 'residential')
         if isinstance(highway, list):
