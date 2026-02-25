@@ -72,7 +72,8 @@ function App() {
 
       // 3. Query Backend AI Routing Engine
       setLoadingStep("Solving complex A* Route (May take 30-60s in Python)...");
-      const url = `http://localhost:8000/api/v1/navigation/route?start_lat=${startLat}&start_lon=${startLon}&end_lat=${endLat}&end_lon=${endLon}&health_sensitivity=${healthSensitivity}`;
+      const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+      const url = `${API_BASE}/api/v1/navigation/route?start_lat=${startLat}&start_lon=${startLon}&end_lat=${endLat}&end_lon=${endLon}&health_sensitivity=${healthSensitivity}`;
       const routeRes = await fetch(url);
 
       if (!routeRes.ok) {

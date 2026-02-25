@@ -65,6 +65,8 @@ export default function MapControl({
                         max="100"
                         value={healthSensitivity}
                         onChange={(e) => setHealthSensitivity(parseInt(e.target.value))}
+                        onMouseUp={() => onCompareRoutes(startAddress, endAddress)}
+                        onTouchEnd={() => onCompareRoutes(startAddress, endAddress)}
                         className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600 hover:accent-blue-700 transition-all"
                     />
                     <div className="flex justify-between text-[10px] text-gray-400 font-medium uppercase mt-1">
