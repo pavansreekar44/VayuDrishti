@@ -1,4 +1,8 @@
-import React, { useState } from 'react';
+import os
+
+app_path = 'src/App.tsx'
+
+react_code = """import React, { useState } from 'react';
 import LeafletMap from './components/LeafletMap';
 
 function useRealHeatmapData() {
@@ -312,3 +316,7 @@ function App() {
 }
 
 export default App;
+"""
+
+with open(app_path, 'w', encoding='utf-8') as f:
+    f.write(react_code)

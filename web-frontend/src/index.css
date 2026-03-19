@@ -2,8 +2,38 @@
 @tailwind components;
 @tailwind utilities;
 
-html,
-body,
-#root {
-  @apply bg-slate-900 text-slate-100 h-full w-full m-0 p-0 overflow-hidden;
+@layer base {
+  body {
+      background-color: #020617;
+      background-image: radial-gradient(circle at 50% 50%, #0f172a 0%, #020617 100%);
+      color: #f8fafc;
+      font-family: 'Inter', sans-serif;
+      overflow: hidden;
+  }
+}
+
+@layer components {
+  .glass-panel {
+      background: rgba(15, 23, 42, 0.4);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .scanning-line {
+      background: linear-gradient(to bottom, transparent 50%, rgba(167, 165, 255, 0.02) 50%);
+      background-size: 100% 4px;
+  }
+}
+
+@layer utilities {
+  .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+      display: none;
+  }
+  .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+  }
 }

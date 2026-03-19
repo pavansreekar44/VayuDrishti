@@ -8,7 +8,7 @@ from app.ai.a3tgcn import A3TGCN
 
 logger = logging.getLogger(__name__)
 
-def train_model(data_dir: str, epochs: int = 50, batch_size: int = 16, lr: float = 0.001):
+def train_model(data_dir: str, epochs: int = 50, batch_size: int = 2, lr: float = 0.001):
     """
     Executes the training loop for the A3T-GCN model over the constructed spatial-temporal graph.
     """
@@ -20,7 +20,7 @@ def train_model(data_dir: str, epochs: int = 50, batch_size: int = 16, lr: float
     
     # 5 features example: [PM2.5_history_t, PM10_history_t, NO2_history_t, SVF, Aspect_Ratio]
     # We will forecast: PM2.5_t+1
-    model = A3TGCN(node_features=5, hidden_dim=64, seq_len=24)
+    model = A3TGCN(node_features=5, hidden_dim=32, seq_len=24)
     
     optimizer = optim.Adam(model.parameters(), lr=lr)
     criterion = nn.MSELoss() # L2 Loss for continuous regression problems

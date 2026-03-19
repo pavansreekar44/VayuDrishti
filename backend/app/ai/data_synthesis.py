@@ -128,4 +128,4 @@ def synthesize_temporal_data(G, days=7):
 
 if __name__ == "__main__":
     G = generate_60km_filtered_graph()
-    synthesize_temporal_data(G, days=14) # Gen 2 weeks of data
+    synthesize_temporal_data(G, days=30) # Pushing Colab RAM to absolute maximum (1 month)

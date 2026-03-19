@@ -13,67 +13,59 @@ let DefaultIcon = L.icon({
 L.Marker.prototype.options.icon = DefaultIcon;
 
 interface LeafletMapProps {
-    heatmapData: number[][];
-    shortestRoute: [number, number][] | null;
-    cleanestRoute: [number, number][] | null;
+    heatmapData: number[][]; // Not heavily used currently, but kept for signature
 }
 
-export default function LeafletMap({ heatmapData, shortestRoute, cleanestRoute }: LeafletMapProps) {
+export default function LeafletMap({ heatmapData }: LeafletMapProps) {
     const mapRef = useRef<HTMLDivElement>(null);
     const mapInstance = useRef<L.Map | null>(null);
-    const routingLayerGroup = useRef<L.LayerGroup | null>(null);
 
-    // Initialize Map
+    // Initialize Map and Load GeoJSON
     useEffect(() => {
         if (!mapRef.current) return;
 
         // Only initialize once
         if (!mapInstance.current) {
-            mapInstance.current = L.map(mapRef.current, { zoomControl: false }).setView([17.3850, 78.4867], 12);
+            // Center around Connaught Place, New Delhi
+            mapInstance.current = L.map(mapRef.current, { zoomControl: false }).setView([28.6139, 77.2090], 11);
 
             L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                attribution: '&copy; OpenStreetMap contributors'
             }).addTo(mapInstance.current);
 
-            routingLayerGroup.current = L.layerGroup().addTo(mapInstance.current);
+            // Fetch and render the Ward polygons
+            fetch('/delhi_wards.geojson')
+                .then(res => res.json())
+                .then(data => {
+                    if (mapInstance.current) {
+                        L.geoJSON(data, {
+                            style: function (feature) {
+                                // Randomly assign Poor/Severe colors based on geometry for the hackathon demo
+                                const isSevere = Math.random() > 0.6;
+                                return {
+                                    color: isSevere ? "#ef4444" : "#69f6b8", // Tailwind error red / secondary green
+                                    weight: 2,
+                                    fillOpacity: isSevere ? 0.2 : 0.05
+                                };
+                            },
+                            onEachFeature: function (feature, layer) {
+                                if (feature.properties && feature.properties.name) {
+                                    layer.bindPopup(`<b>${feature.properties.name}</b><br/>Ward Border`);
+                                }
+                            }
+                        }).addTo(mapInstance.current);
+                    }
+                })
+                .catch(err => console.error("Error loading ward geojson:", err));
         }
 
         return () => {
-            // Cleanup on unmount
             if (mapInstance.current) {
                 mapInstance.current.remove();
                 mapInstance.current = null;
             }
         };
     }, []);
-
-    // Handle Route Updates
-    useEffect(() => {
-        if (!mapInstance.current || !routingLayerGroup.current) return;
-
-        // Clear previous routes
-        routingLayerGroup.current.clearLayers();
-
-        if (shortestRoute && shortestRoute.length > 0) {
-            mapInstance.current.setView(shortestRoute[0], 13);
-
-            L.polyline(shortestRoute, {
-                color: '#ef4444',
-                weight: 4,
-                dashArray: '8, 8',
-                opacity: 0.8
-            }).addTo(routingLayerGroup.current);
-        }
-
-        if (cleanestRoute) {
-            L.polyline(cleanestRoute, {
-                color: '#10b981',
-                weight: 6,
-                opacity: 1.0
-            }).addTo(routingLayerGroup.current);
-        }
-
-    }, [shortestRoute, cleanestRoute]);
 
     return (
         <div

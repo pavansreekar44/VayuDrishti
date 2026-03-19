@@ -18,8 +18,8 @@ export default function MapControl({
     loadingStep,
     routeStats
 }: MapControlProps) {
-    const [startAddress, setStartAddress] = useState("Banjara Hills, Hyderabad");
-    const [endAddress, setEndAddress] = useState("Hussain Sagar, Hyderabad");
+    const [startAddress, setStartAddress] = useState("India Gate, New Delhi");
+    const [endAddress, setEndAddress] = useState("Connaught Place, New Delhi");
 
     return (
         <div className="absolute top-4 left-4 w-96 bg-white/90 backdrop-blur-md rounded-xl shadow-2xl p-6 border border-gray-100 font-sans z-[1000] transition-all duration-300">
