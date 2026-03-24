@@ -4,9 +4,15 @@ import pathlib
 
 # Globally configure Google Application Default Credentials to use our Backend Service Account
 # This ensures Vertex AI and Google Earth Engine SDKs authenticate seamlessly without Windows ADC hangs
-credentials_path = os.path.join(os.path.dirname(__file__), "services", "ee-credentials.json")
-if os.path.exists(credentials_path):
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
+try:
+    credentials_path = os.path.join(os.path.dirname(__file__), "services", "ee-credentials.json")
+    if os.path.exists(credentials_path):
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
+        print(f"✓ Google credentials loaded from: {credentials_path}")
+    else:
+        print("⚠ Google credentials file not found - some Google services may be unavailable")
+except Exception as e:
+    print(f"⚠ Warning: Could not load Google credentials: {e}")
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -36,10 +42,15 @@ def create_app() -> FastAPI:
     
     # In production on Azure, allow HTTPS from Vercel
     if os.getenv("ENVIRONMENT") == "azure":
-        # Add your Vercel deployment URL here
-        cors_origins.extend([
-            "https://<your-vercel-app>.vercel.app",  # Replace with your Vercel URL
-        ])
+        # Add your Vercel deployment URL from FRONTEND_URL env var
+        vercel_url = os.getenv("FRONTEND_URL")
+        if vercel_url:
+            cors_origins.append(vercel_url)
+            print(f"✓ Added Vercel frontend to CORS: {vercel_url}")
+        else:
+            # Fallback: allow any HTTPS origin in production (less secure but works)
+            print("⚠ FRONTEND_URL not set - CORS may have issues")
+            # You can temporarily use "*" or a specific list
     
     app.add_middleware(
         CORSMiddleware,
