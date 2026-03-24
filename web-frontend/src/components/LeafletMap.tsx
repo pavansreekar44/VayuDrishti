@@ -40,7 +40,8 @@ export default function LeafletMap({ wards, selectedWard, onWardClick, granulari
             L.control.zoom({ position: 'bottomright' }).addTo(mapInstance.current);
             
             // ─── HACKATHON EDGE: Live Wind Particle Engine ───
-            fetch('http://localhost:8080/api/v1/dashboard/weather/wind-grid')
+            const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+            fetch(`${API_BASE}/api/v1/dashboard/weather/wind-grid`)
                 .then(res => res.json())
                 .then(data => {
                     // @ts-ignore
