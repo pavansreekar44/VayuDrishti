@@ -22,9 +22,28 @@ def create_app() -> FastAPI:
     )
 
     # Set up CORS
+    # Allow both development (localhost) and production (Vercel) origins
+    cors_origins = [
+        "http://localhost:3000",  # Development
+        "http://localhost:5173",  # Vite dev server
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+    ]
+    
+    # Add production frontend URLs from environment variable if available
+    if frontend_url := os.getenv("FRONTEND_URL"):
+        cors_origins.append(frontend_url)
+    
+    # In production on Azure, allow HTTPS from Vercel
+    if os.getenv("ENVIRONMENT") == "azure":
+        # Add your Vercel deployment URL here
+        cors_origins.extend([
+            "https://<your-vercel-app>.vercel.app",  # Replace with your Vercel URL
+        ])
+    
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"], # Update for production
+        allow_origins=cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
