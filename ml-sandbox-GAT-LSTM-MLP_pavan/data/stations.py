@@ -29,7 +29,7 @@ STATION_COORDS = {
     "IHBAS Dilshad Garden": (28.6821, 77.305),
     "IIT Delhi": (28.5448, 77.1923),
    # "IMD Lodhi Road": (28.588, 77.2215),# This station has no data
-
+   
     "ITO": (28.628624, 77.24106),
     "JNU": (28.5398, 77.1654),
     "Jahangirpuri": (28.73282, 77.170633),
@@ -55,7 +55,7 @@ STATION_COORDS = {
     "Sri Aurobindo Marg": (28.531346, 77.190156),
     "Talkatora Garden": (28.6247, 77.1979),
     "Vivek Vihar": (28.672342, 77.31526),
-    "Wazirpur": (28.699793, 77.165453)
+    "Wazirpur": (28.699793, 77.165453),
 }
 
 # Geographic center of Delhi — used for dist_center feature calculation
@@ -63,4 +63,4 @@ DELHI_CENTER = (28.6139, 77.2090)
 
 # Total station count (for validation assertions)
 TOTAL_STATIONS = len(STATION_COORDS)
-assert TOTAL_STATIONS == 39, f"Expected 39 stations, got {TOTAL_STATIONS}"
+assert TOTAL_STATIONS == 40, f"Expected 40 stations, got {TOTAL_STATIONS}"

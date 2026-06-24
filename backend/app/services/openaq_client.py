@@ -232,8 +232,24 @@ class OpenAQClient:
                     failed.append(name)
                     continue
 
-                # Use the first (closest) result
-                loc = results[0]
+                # Find the location with the most recent datetimeLast to avoid dead legacy nodes
+                freshest_loc = results[0]
+                freshest_time = None
+                
+                for current_loc in results:
+                    dt_last_obj = current_loc.get("datetimeLast")
+                    if dt_last_obj and isinstance(dt_last_obj, dict):
+                        dt_last_str = dt_last_obj.get("utc")
+                        if dt_last_str:
+                            try:
+                                dt_last = datetime.fromisoformat(dt_last_str.replace("Z", "+00:00"))
+                                if freshest_time is None or dt_last > freshest_time:
+                                    freshest_time = dt_last
+                                    freshest_loc = current_loc
+                            except (ValueError, TypeError):
+                                pass
+
+                loc = freshest_loc
                 loc_id = loc["id"]
                 self._station_id_cache[name] = loc_id
 
@@ -319,11 +335,11 @@ class OpenAQClient:
                 if unit not in valid_units:
                     continue
 
-                # 4-Hour Lookback Window
+                # 12-Hour Lookback Window
                 try:
                     reading_time = datetime.fromisoformat(dt.replace("Z", "+00:00"))
                     now_utc = datetime.now(timezone.utc)
-                    if now_utc - reading_time > timedelta(hours=4):
+                    if now_utc - reading_time > timedelta(hours=12):
                         continue
                 except (ValueError, TypeError):
                     continue
@@ -389,7 +405,7 @@ class OpenAQClient:
             # PM2.5 is REQUIRED — if not available, return None (no estimation!)
             if final_vals["pm25"] is None:
                 logger.warning(
-                    f"[OpenAQ] No valid PM2.5 reading (µg/m³ within 4 hrs) for {station_name}. "
+                    f"[OpenAQ] No valid PM2.5 reading (µg/m³ within 12 hrs) for {station_name}. "
                     f"Returning None — no substitute values will be used."
                 )
                 return None

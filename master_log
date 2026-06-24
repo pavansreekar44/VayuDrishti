@@ -3,6 +3,10 @@
 # ═══════════════════════════════════════════════════════════════════════════
 
 ---
+NOTE : TemporalNeuralNetworkMock is located in the backend/app/services/ml_engine.py file!
+
+Despite the name "Mock" (which was kept from an older version of the codebase to maintain compatibility with the frontend endpoints without having to rewrite the API controllers), it actually houses the fully integrated, production-ready PyTorch GAT+LSTM and MLP model inference loop that we just set up. The term mock is just for namesake purposes, it should be updated later to remove the word mock to improve codebase readability and as a best practice in software development
+
 
 Timestamp: 2026-06-15T08:36:00Z
 
@@ -300,5 +304,75 @@ Verified via `test_mlops_matrix.py`. Rate limit successfully halted for 30s. Sta
 
 Side Effects / Risks:
 Execution time may artificially pause for 30s during large loop iterations.
+
+Status: Success
+
+---
+
+Timestamp: 2026-06-19T09:12:00Z
+
+Files Modified:
+- backend/app/services/ml_engine.py
+- backend/app/services/gat+lstm-mlp_pavan/ (New Directory)
+
+Change Description:
+Integrated the locally trained GAT+LSTM and MLP model (`VayuDrishtiSTGNN`) into the backend inference pipeline. 
+1. Moved the model weights (`model_nolog_huber.pth`), class definition (`model.py`), graph edge index (`delhi_8km_edge_index.pt`), and scalers into the new `gat+lstm-mlp_pavan` directory inside `services`.
+2. Refactored `ml_engine.py` to enforce the "No Fake Data" rule, strictly masking missing OpenAQ dynamic features (NO2, SO2, CO, PM10) to `0.0` before passing into the graph network.
+3. Added an integration with OpenWeatherMap API to fetch live Temperature and Humidity for the exact latitude/longitude of deserted wards to prevent context scaler misinterpretations (0.0°C).
+4. Replaced the legacy US EPA PM2.5 AQI calculation with the official Indian CPCB PM2.5 breakpoints (`pm25_to_aqi_ind`).
+5. Added algorithmic source attribution logic based on output chemical ratios (e.g. SO2 vs PM10, NO2 vs CO).
+6. Disconnected and preserved the old IDW spatial interpolation and legacy neural network code as comments.
+
+Reason:
+To deploy the final GAT+LSTM and MLP machine learning models into production, strictly adhering to the "No Fake Data" policy and correctly interpreting PM2.5 through Indian AQI standards.
+
+Expected Outcome:
+The map will now dynamically predict PM2.5 for deserted wards using the 39-node graph neural network and calculate authentic Indian AQI.
+
+Actual Outcome:
+Models, scalers, and graph topologies loaded successfully natively on PyTorch (CPU/CUDA). The inference loop handles live data and appropriately applies scaling and inverse scaling. Legacy IDW safely preserved.
+
+Side Effects / Risks:
+Requires an `OPENWEATHERMAP_API_KEY` in the `.env` file for high accuracy; without it, it safely falls back to default weather to prevent crashing.
+
+Status: Success
+
+
+OpenWeatherMap API key belongs to PS 
+
+---
+
+Timestamp: 2026-06-19T15:40:00Z
+
+Files Modified:
+- backend/app/services/openaq_client.py
+
+Change Description:
+Increased the OpenAQ live data temporal lookback window from 4 hours to 12 hours. Updated the `timedelta(hours=4)` condition to `timedelta(hours=12)` in `fetch_latest_for_station`, and updated the corresponding logger warnings to say 'within 12 hrs'.
+
+Reason:
+To increase station coverage. Although 4 hours is strict and provides the freshest data, many government stations naturally report at larger intervals. Increasing the tolerance to 12 hours allows more nodes to participate in the graph inference while still rejecting fully defunct stations that haven't reported in days/months.
+
+Expected Outcome:
+The system will recover more stations from the "failed/deserted" list, providing a denser graph structure for the GAT+LSTM model while still strictly enforcing the "No Fake Data" rule (no fabrication/interpolation).
+
+Status: Success
+
+---
+
+Timestamp: 2026-06-19T16:03:00Z
+
+Files Modified:
+- backend/app/services/openaq_client.py
+
+Change Description:
+Refactored the `discover_station_ids` function in `OpenAQClient`. Instead of blindly selecting the first node returned within the 3km spatial query radius, the function now iterates through all nodes in the `results` payload and selects the node with the most recent `datetimeLast.utc` timestamp. 
+
+Reason:
+Because OpenAQ often contains duplicate or legacy nodes (such as the old DTU node which died in 2018), selecting the geographically closest node sometimes resulted in selecting a dead node. By filtering by the `datetimeLast` parameter already present in the `/v3/locations` API payload, we can dynamically latch onto the active node without making any extra API requests (thus preserving our 55-req/min rate limit budget).
+
+Expected Outcome:
+Significant improvement in station coverage, as active stations previously hidden behind dead overlapping nodes (like DTU) will now be successfully discovered and fetched. Strict "No Fake Data" contract is maintained.
 
 Status: Success
