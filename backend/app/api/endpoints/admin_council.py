@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 router = APIRouter()
 
-from app.api.endpoints.dashboard import INFERENCE_GRID_CACHE
+from app.services.ml_engine import ML_ENGINE
 
 class CouncilQuery(BaseModel):
     scenario: str
@@ -58,7 +58,7 @@ COUNCIL_AGENTS = [
 ]
 
 def analyze_current_situation():
-    wards_data = INFERENCE_GRID_CACHE.get("data", [])
+    wards_data = list(ML_ENGINE.get_cached_predictions()[0].values()) if ML_ENGINE.get_cached_predictions()[0] else []
     if not wards_data:
         return {"error": "INSUFFICIENT DATA"}
     critical_zones = [w for w in wards_data if w.get('aqi', 0) > 300]

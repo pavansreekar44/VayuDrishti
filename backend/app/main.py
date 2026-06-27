@@ -101,16 +101,15 @@ def create_app() -> FastAPI:
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         }
 
-    # Fire ML inference loop immediately at startup
+    # Fire hourly ML inference loop at startup
     @app.on_event("startup")
     async def startup_event():
         print(f"[STARTUP] VayuDrishti {settings.VERSION} initializing...")
-        print(f"[STARTUP] WAQI configured: {bool(os.getenv('WAQI_TOKEN'))}")
         print(f"[STARTUP] GCP configured: {bool(os.getenv('GCP_PROJECT_ID'))}")
         try:
-            from app.api.endpoints.dashboard import _autonomous_ml_inference_loop
-            asyncio.create_task(_autonomous_ml_inference_loop())
-            print("[STARTUP] TNN background inference loop launched.")
+            from app.api.endpoints.dashboard import _hourly_ml_inference_loop
+            asyncio.create_task(_hourly_ml_inference_loop())
+            print("[STARTUP] Hourly ML inference loop launched.")
         except Exception as e:
             print(f"[STARTUP] ML inference loop failed to launch (non-fatal): {e}")
 

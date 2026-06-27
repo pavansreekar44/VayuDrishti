@@ -15,7 +15,7 @@ def get_supabase_config():
     return url, key
 
 # Import ML cache access
-from app.api.endpoints.dashboard import INFERENCE_GRID_CACHE
+from app.services.ml_engine import ML_ENGINE
 
 @router.get("/overview")
 async def get_admin_overview(current_user: Profile = Depends(require_admin)):
@@ -37,24 +37,18 @@ async def get_admin_overview(current_user: Profile = Depends(require_admin)):
     headers = {"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
     
     try:
-        # Trigger background task if not started
-        from app.api.endpoints.dashboard import BACKGROUND_TASK_STARTED, _autonomous_ml_inference_loop
-        if not BACKGROUND_TASK_STARTED:
-            print("[ADMIN] Starting ML inference background task...")
-            asyncio.create_task(_autonomous_ml_inference_loop())
-            import app.api.endpoints.dashboard as dash_module
-            dash_module.BACKGROUND_TASK_STARTED = True
+        # ML inference background task is handled by main.py startup event
         
         # Wait up to 10s for ML cache (reduced for faster response)
         ml_ready = False
         for _ in range(100):
-            if INFERENCE_GRID_CACHE.get("data"):
+            if ML_ENGINE.get_cached_predictions()[0]:
                 ml_ready = True
                 break
             await asyncio.sleep(0.1)
         
         # Get ML inference data (may be empty if still loading)
-        wards_data = INFERENCE_GRID_CACHE.get("data", [])
+        wards_data = list(ML_ENGINE.get_cached_predictions()[0].values()) if ML_ENGINE.get_cached_predictions()[0] else []
         
         # Compute metrics from ML data (with fallbacks)
         if wards_data:
@@ -149,7 +143,7 @@ async def get_hotspots(
     start_time = datetime.utcnow()
     
     # Get real-time ML data
-    wards_data = INFERENCE_GRID_CACHE.get("data", [])
+    wards_data = list(ML_ENGINE.get_cached_predictions()[0].values()) if ML_ENGINE.get_cached_predictions()[0] else []
     
     if not wards_data:
         raise HTTPException(status_code=503, detail="ML inference data not available")
@@ -273,7 +267,7 @@ async def get_aqi_trends(
     start_time = datetime.utcnow()
     
     # Get current ML data
-    wards_data = INFERENCE_GRID_CACHE.get("data", [])
+    wards_data = list(ML_ENGINE.get_cached_predictions()[0].values()) if ML_ENGINE.get_cached_predictions()[0] else []
     
     if not wards_data:
         raise HTTPException(status_code=503, detail="ML inference data not available")
@@ -314,7 +308,7 @@ async def get_aqi_distribution(current_user: Profile = Depends(require_admin)):
     """
     start_time = datetime.utcnow()
     
-    wards_data = INFERENCE_GRID_CACHE.get("data", [])
+    wards_data = list(ML_ENGINE.get_cached_predictions()[0].values()) if ML_ENGINE.get_cached_predictions()[0] else []
     
     if not wards_data:
         raise HTTPException(status_code=503, detail="ML inference data not available")

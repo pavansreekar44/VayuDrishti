@@ -376,3 +376,108 @@ Expected Outcome:
 Significant improvement in station coverage, as active stations previously hidden behind dead overlapping nodes (like DTU) will now be successfully discovered and fetched. Strict "No Fake Data" contract is maintained.
 
 Status: Success
+
+---
+
+Timestamp: 2026-06-27T10:09:42+05:30
+
+Files Modified:
+- backend/app/services/gat+lstm-mlp_pavan/ [DELETED]
+- ml-sandbox-GAT-LSTM-MLP_pavan(Old Model)/ [DELETED]
+- backend/app/services/vayu_model/ [NEW]
+- backend/app/services/ml_engine.py
+- backend/app/api/endpoints/dashboard.py
+- backend/app/main.py
+- web-frontend/src/components/LeafletMap.tsx
+- web-frontend/src/App.tsx
+
+Change Description:
+Integrated the new 250-node VayuDrishti GAT-LSTM model. This completely replaces the legacy 39-node model and IDW interpolation.
+1. Cleaned up old model and sandbox directories.
+2. Copied new model assets (architecture, weights, edge index, scaler, and spatial registry CSV).
+3. Rewrote ml_engine.py to process 250 nodes using a 24-hour OpenAQ historical fetch (with rate limiting), batch fetching of OpenMeteo wind data (U, V) for all nodes, and proper Z-score scaling with chemical masking for deserted nodes. 
+4. Shifted ML inference to an hourly background task (`_hourly_ml_inference_loop` in dashboard.py and main.py) that caches results, allowing instant API responses.
+5. Rewrote dashboard API to serve mapped predictions instead of interpolated arrays.
+6. Updated frontend LeafletMap and App to map predictions to MCD polygons by name, added point markers for 5 CPCB stations without polygons, added neutral rendering for 8 dropped wards, and added full chemistry readouts to the UI.
+
+Reason:
+To upgrade the system to the new 250-node architecture that inherently predicts across all wards without relying on IDW interpolation, handle data effectively through caching to avoid rate limits, and apply accurate physics (wind drift) to the graph network.
+
+Expected Outcome:
+The system dynamically predicts all 250 nodes simultaneously with high accuracy, instantly serving them to the frontend without latency or API rate limit crashes.
+
+Actual Outcome:
+The integration successfully passed verification tests. Model loads, the inference pipeline runs efficiently, and the UI maps the complex node structures accurately.
+
+Status: Success
+
+
+---
+
+Timestamp: 2026-06-27T13:11:02+05:30
+
+Files Modified:
+- backend/app/services/ml_engine.py
+- backend/app/api/endpoints/dashboard.py
+- backend/app/api/endpoints/admin_analytics.py
+
+Change Description:
+1. OpenAQ Fetch Loop Optimization (ml_engine.py):
+   - Refactored `discover_station_ids` to abandon bulk fetching and enforce a strict architectural hierarchy.
+   - Primary Fetch: Attempts an exact string match query per station using `name=` and `isMonitor=true` (reference-grade filter).
+   - Fallback Fetch: Executes a 3km radial search using lat/lon and `isMonitor=true` only if the primary exact string match fails.
+   - Decoupled OpenAQ JSON array order from tensor index order by utilizing a parameter-keyed temporary dictionary to prevent chemical feature swapping.
+2. Rate Limiting (ml_engine.py):
+   - Implemented a robust 60-second sliding window counter in `OpenAQ24HFetcher`. Safely invokes `time.sleep(30)` if 50 outbound requests are made within a minute, fully preventing HTTP 429 rate limit bans.
+3. AQI Scaling Bugs Fixed:
+   - Updated `pm25_to_aqi_ind` (ml_engine.py) and `pm25_to_aqi_us` (dashboard.py) to securely clamp maximum AQI predictions using `return min(int(round(aqi)), 500)`, preventing runaway impossible AQI values.
+4. Admin Dashboard Fix (admin_analytics.py):
+   - Removed deprecated legacy import referencing `_autonomous_ml_inference_loop`, fixing the fatal HTTP 500 error triggered on the Overview API.
+
+Reason:
+To ensure 100% station data integrity (no community sensors), guarantee API rate limit compliance, decouple fragile JSON structures from tensor construction, and fix physics scaling bugs causing impossible values.
+
+Expected Outcome:
+The GAT-LSTM pipeline safely ingests correctly ordered 5-gas data from reference-grade monitors exclusively. The dashboard displays accurate AQI values capped at 500 without crashing.
+
+Actual Outcome:
+Optimizations deployed successfully. Uvicorn hot-reloaded the updated inference engine securely into the hourly background task.
+
+Side Effects / Risks:
+Strict name matching requires OpenAQ names in `STATION_COORDS` to remain perfectly synced. The 3km fallback safely handles minor string discrepancies if they occur.
+
+Status: Success
+
+
+---
+
+Timestamp: 2026-06-27T17:04:20+05:30
+
+Files Modified:
+- backend/app/services/ml_engine.py
+
+Change Description:
+1. Multi-Pollutant NAQI Implementation:
+   - Replaced single-pollutant `pm25_to_aqi_ind` with `calculate_indian_aqi` to support the full 5-pollutant Indian CPCB standard (PM2.5, PM10, NO2, SO2, CO).
+   - Applied piecewise linear interpolation using exact CPCB concentration breakpoints for all 5 gases.
+   - Added deterministic tie-breaker priority (PM2.5 > PM10 > NO2 > SO2 > CO) when multiple pollutants share the exact same maximum sub-index.
+   - Implemented an explicit zero-bypass rule to handle missing/masked sensor nodes (if c <= 0, sub-index defaults to 0).
+2. CO Metric Conversion Bug Fix:
+   - Discovered a critical metric mismatch where OpenAQ returns CO in µg/m³ but the GAT-LSTM model was trained on mg/m³ (mean=~0.98).
+   - Fixed the raw tensor generation (Step 4) to divide the OpenAQ CO value by 1000 before scaling and passing it into the neural network.
+3. Inference Payload Update:
+   - Updated the final JSON response (Step 9) to export both the max-capped `aqi` (max=500) and the `dominant_pollutant` string for the frontend dashboard.
+
+Reason:
+To strictly comply with the CPCB National Air Quality Index (NAQI) framework which mandates a multi-pollutant maximum sub-index approach, and to fix a severe metric mismatch that was feeding 1000x inflated CO values into the ML engine.
+
+Expected Outcome:
+The dashboard will accurately reflect the true Indian AQI based on the worst-offending pollutant. The ML model's accuracy for CO predictions will drastically improve since it is now receiving the correct mg/m³ metric.
+
+Actual Outcome:
+AQI logic deployed successfully. The inference loop was hot-reloaded and is now outputting multi-pollutant NAQI scores.
+
+Side Effects / Risks:
+None.
+
+Status: Success

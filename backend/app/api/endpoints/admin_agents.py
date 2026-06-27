@@ -11,7 +11,7 @@ from app.db.admin_models import Profile
 router = APIRouter()
 
 # Import real data sources
-from app.api.endpoints.dashboard import INFERENCE_GRID_CACHE, fetch_real_station_anchors
+from app.services.ml_engine import ML_ENGINE
 
 class AgentQuery(BaseModel):
     query: str
@@ -43,7 +43,7 @@ def extract_ward_from_query(query: str) -> str:
 
 async def fetch_ward_data(ward_name: str) -> Dict[str, Any]:
     """Fetch real data for a specific ward"""
-    wards_data = INFERENCE_GRID_CACHE.get("data", [])
+    wards_data = list(ML_ENGINE.get_cached_predictions()[0].values()) if ML_ENGINE.get_cached_predictions()[0] else []
     
     for ward in wards_data:
         if ward_name.lower() in ward.get('name', '').lower():
@@ -93,7 +93,7 @@ async def agent_query(
     
     try:
         # Get real-time data
-        wards_data = INFERENCE_GRID_CACHE.get("data", [])
+        wards_data = list(ML_ENGINE.get_cached_predictions()[0].values()) if ML_ENGINE.get_cached_predictions()[0] else []
         
         if not wards_data:
             return AgentResponse(

@@ -319,7 +319,6 @@ export default function App() {
                     </button>
                 </div>
 
-                {/* AQI Display */}
                 <div className="flex items-center gap-6 mb-6 bg-slate-900/50 p-6 rounded border border-slate-800">
                     <div className={`text-7xl font-light tracking-tighter ${
                       selectedWard.aqi > 300 ? 'text-red-400' : 'text-blue-400'
@@ -340,6 +339,21 @@ export default function App() {
                            <span className="text-sm text-white">{selectedWard.pm25} µg/m³</span>
                         </div>
                     </div>
+                </div>
+
+                {/* Chemistry Readout */}
+                <div className="grid grid-cols-2 gap-2 mb-6">
+                    {[
+                        { label: 'PM10', value: selectedWard.pm10, unit: 'µg/m³' },
+                        { label: 'NO₂', value: selectedWard.no2, unit: 'µg/m³' },
+                        { label: 'SO₂', value: selectedWard.so2, unit: 'µg/m³' },
+                        { label: 'CO', value: selectedWard.co, unit: 'mg/m³' },
+                    ].map((item, i) => (
+                        <div key={i} className="bg-slate-900/50 p-3 rounded border border-slate-800">
+                            <span className="font-mono text-[9px] text-slate-500 uppercase tracking-wider block">{item.label}</span>
+                            <span className="text-sm text-white">{item.value ?? '—'} <span className="text-[9px] text-slate-500">{item.unit}</span></span>
+                        </div>
+                    ))}
                 </div>
 
                 {/* Satellite Diagnostics */}
